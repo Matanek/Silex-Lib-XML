@@ -1,0 +1,41 @@
+use XML
+
+test "parse namespaces attributes entities comments and CDATA" {
+    let source = "<?xml version=\"1.0\"?><feed xmlns:x=\"urn:test\"><x:item id=\"42\">A &amp; B<![CDATA[ <raw> ]]></x:item><!--done--></feed>"
+    var document = XML.parse(source)
+    var root = document.root()
+    if var feed = root {
+        if let name = feed.name() { assert(name == "feed") }
+        else { panic("root name should exist") }
+        if let namespace = feed.attribute("xmlns:x") { assert(namespace == "urn:test") }
+        else { panic("namespace declaration should exist") }
+    } else { panic("root should exist") }
+    var item = document.elements("x:item")[0]
+    assert(item.text_content() == "A & B <raw> ")
+    if let identifier = item.attribute("id") { assert(identifier == "42") }
+    else { panic("item id should exist") }
+    assert(XML.serialize(document) == source)
+}
+
+test "build and pretty serialize" {
+    var document = XML.document()
+    var catalog = document.append_element("catalog")
+    var item = catalog.append_element("item")
+    item.set_attribute("name", "A&B")
+    item.append_text("<value>")
+    assert(XML.serialize(document, XML.Format.pretty) == "<catalog>\n  <item name=\"A&amp;B\">&lt;value&gt;</item>\n</catalog>\n")
+}
+
+test "reject mismatched elements" {
+    match XML.try_parse("<root><child></root>") {
+        success(document) => { panic("mismatched element should fail") }
+        failure(error) => { assert(error.kind == XML.ParseErrorKind.mismatched_element) }
+    }
+}
+
+test "reject doctypes rather than expanding entities" {
+    match XML.try_parse("<!DOCTYPE root><root/>") {
+        success(document) => { panic("DTD should be unsupported") }
+        failure(error) => { assert(error.kind == XML.ParseErrorKind.unsupported_doctype) }
+    }
+}
