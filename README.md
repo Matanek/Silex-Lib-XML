@@ -18,7 +18,7 @@ entities and numeric character references are decoded.
 
 DTD declarations and custom entity expansion are rejected explicitly. This
 keeps untrusted documents free from external-entity access and exponential
-entity expansion. Version 0.1 preserves namespace declarations and qualified
+entity expansion. Version 0.2 preserves namespace declarations and qualified
 names but does not resolve them into namespace URI/local-name pairs. XML name
 support is currently the portable ASCII subset.
 
