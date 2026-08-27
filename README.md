@@ -5,9 +5,12 @@
 ```sx
 use XML
 
-var document = XML.parse(source)
-for entry in document.elements("entry") {
-    print(entry.text_content())
+var document = XML.parse(
+    "<feed><entry id=\"1\"><title>Silex &amp; XML</title></entry></feed>"
+)
+var entry = document.elements("entry")[0]
+if let identifier = entry.attribute("id") {
+    print("$(identifier): $(entry.text_content())")
 }
 ```
 
