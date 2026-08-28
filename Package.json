@@ -1,10 +1,13 @@
 {
   "name": "XML",
   "version": "0.2.0",
-  "description": "Build, parse, traverse, and serialize strict XML documents.",
+  "description": {
+    "en": "Build, parse, traverse, and serialize strict XML documents.",
+    "fr": "Construit, analyse, parcourt et sérialise des documents XML stricts."
+  },
   "authors": ["Matanek"],
   "requires": {
-    "silex": ">=0.39.0"
+    "silex": ">=0.42.0"
   },
   "dependencies": {
     "STD": "^0.16.7"
