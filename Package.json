@@ -1,6 +1,6 @@
 {
   "name": "XML",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": {
     "en": "Build, parse, traverse, and serialize strict XML documents.",
     "fr": "Construit, analyse, parcourt et sérialise des documents XML stricts."
