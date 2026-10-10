@@ -18,7 +18,8 @@ Importez ensuite son module public :
 use XML
 ```
 
-XML demande Silex 0.39.0 ou une version plus récente.
+Cette révision en développement requiert la toolchain avec capture
+`try` des opérations `Result` et extraction lors de l’appel ordinaire.
 
 ## Analyser et parcourir un document
 
@@ -67,6 +68,7 @@ La version 0.2 conserve les déclarations de namespace et les noms qualifiés,
 mais ne les résout pas encore en paires URI de namespace et nom local. Les noms
 XML acceptés correspondent actuellement au sous-ensemble ASCII portable.
 
-`try_parse` retourne les erreurs de structure et de limite avec leur position
-dans la source. `parse` est la forme directe destinée aux entrées applicatives
-de confiance.
+`parse` possède une seule déclaration `Result<Document, ParseError>`.
+L’appel ordinaire rend le document ou arrête le programme sur erreur.
+`try XML.parse(source)` conserve les erreurs de structure et de limite avec
+leur position dans la source pour les traiter explicitement.

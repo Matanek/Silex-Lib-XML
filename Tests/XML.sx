@@ -27,14 +27,14 @@ test "build and pretty serialize" {
 }
 
 test "reject mismatched elements" {
-    match XML.try_parse("<root><child></root>") {
+    match (try XML.parse("<root><child></root>")) {
         success(document) => { panic("mismatched element should fail") }
         failure(error) => { assert(error.kind == XML.ParseErrorKind.mismatched_element) }
     }
 }
 
 test "reject doctypes rather than expanding entities" {
-    match XML.try_parse("<!DOCTYPE root><root/>") {
+    match (try XML.parse("<!DOCTYPE root><root/>")) {
         success(document) => { panic("DTD should be unsupported") }
         failure(error) => { assert(error.kind == XML.ParseErrorKind.unsupported_doctype) }
     }

@@ -215,22 +215,14 @@ public func default_parse_options() ParseOptions {
     )
 }
 
-public func try_parse(source:str) Result<Node, ParseError> {
-    return try_parse(source, default_parse_options())
+public func parse(source:str) Result<Node, ParseError> {
+    return (try parse(source, default_parse_options()))
 }
 
-public func try_parse(source:str, options:ParseOptions) Result<Node, ParseError> {
-    return Parser(source, options).run()
+public func parse(source:str, options:ParseOptions) Result<Node, ParseError> {
+    return (try Parser(source, options).run())
 }
 
-public func parse(source:str) Node { return parse(source, default_parse_options()) }
-
-public func parse(source:str, options:ParseOptions) Node {
-    match try_parse(source, options) {
-        success(document) => { return document }
-        failure(error) => { panic("$(error.line):$(error.column): " + error.detail) }
-    }
-}
 
 public func serialize(node:Node) str { return serialize(node, Format.compact) }
 
@@ -257,44 +249,44 @@ class Parser {
 
     func run() Result<Node, ParseError> {
         if self.options.maximum_bytes < 0 || self.input.count() > self.options.maximum_bytes {
-            return self.failure(ParseErrorKind.byte_limit, "XML input exceeds maximum_bytes")
+            return (try self.failure(ParseErrorKind.byte_limit, "XML input exceeds maximum_bytes"))
         }
-        if self.options.maximum_nodes < 1 { return self.failure(ParseErrorKind.node_limit, "maximum_nodes must be positive") }
-        if self.options.maximum_depth < 1 { return self.failure(ParseErrorKind.depth_limit, "maximum_depth must be positive") }
+        if self.options.maximum_nodes < 1 { return (try self.failure(ParseErrorKind.node_limit, "maximum_nodes must be positive")) }
+        if self.options.maximum_depth < 1 { return (try self.failure(ParseErrorKind.depth_limit, "maximum_depth must be positive")) }
         if starts_at(self.input, 0, "﻿") { self.offset = 3 }
         var document = Node.document()
         var stack:Node[] = [document]
         while self.offset < self.input.count() {
             if self.input[self.offset] != 60 {
-                match self.read_text(stack) {
+                match (try self.read_text(stack)) {
                     success => {}
                     failure(error) => { return Result<Node, ParseError>.failure(error) }
                 }
                 continue
             }
             if starts_at(self.input, self.offset, "<!--") {
-                match self.read_comment(stack) { success => {}; failure(error) => { return Result<Node, ParseError>.failure(error) } }
+                match (try self.read_comment(stack)) { success => {}; failure(error) => { return Result<Node, ParseError>.failure(error) } }
                 continue
             }
             if starts_at(self.input, self.offset, "<![CDATA[") {
-                match self.read_cdata(stack) { success => {}; failure(error) => { return Result<Node, ParseError>.failure(error) } }
+                match (try self.read_cdata(stack)) { success => {}; failure(error) => { return Result<Node, ParseError>.failure(error) } }
                 continue
             }
             if starts_at(self.input, self.offset, "<!DOCTYPE") || starts_at(self.input, self.offset, "<!doctype") {
-                return self.failure(ParseErrorKind.unsupported_doctype, "XML DTD declarations are not supported")
+                return (try self.failure(ParseErrorKind.unsupported_doctype, "XML DTD declarations are not supported"))
             }
             if starts_at(self.input, self.offset, "<?") {
-                match self.read_instruction(stack) { success => {}; failure(error) => { return Result<Node, ParseError>.failure(error) } }
+                match (try self.read_instruction(stack)) { success => {}; failure(error) => { return Result<Node, ParseError>.failure(error) } }
                 continue
             }
             if starts_at(self.input, self.offset, "</") {
-                match self.read_close(stack) { success => {}; failure(error) => { return Result<Node, ParseError>.failure(error) } }
+                match (try self.read_close(stack)) { success => {}; failure(error) => { return Result<Node, ParseError>.failure(error) } }
                 continue
             }
-            match self.read_open(stack) { success => {}; failure(error) => { return Result<Node, ParseError>.failure(error) } }
+            match (try self.read_open(stack)) { success => {}; failure(error) => { return Result<Node, ParseError>.failure(error) } }
         }
-        if stack.count() != 1 { return self.failure(ParseErrorKind.unexpected_end, "XML document ended before its root element closed") }
-        if self.root_count == 0 { return self.failure(ParseErrorKind.missing_root, "XML document requires one root element") }
+        if stack.count() != 1 { return (try self.failure(ParseErrorKind.unexpected_end, "XML document ended before its root element closed")) }
+        if self.root_count == 0 { return (try self.failure(ParseErrorKind.missing_root, "XML document requires one root element")) }
         return Result<Node, ParseError>.success(document)
     }
 
@@ -303,78 +295,78 @@ class Parser {
         while self.offset < self.input.count() && self.input[self.offset] != 60 { self.offset++ }
         let source = bytes_text(self.input, start, self.offset)
         var value = ""
-        match decode_entities(source) {
+        match (try decode_entities(source)) {
             success(decoded) => { value = decoded }
-            failure(detail) => { return self.failure_void(ParseErrorKind.invalid_entity, detail) }
+            failure(detail) => { return (try self.failure_void(ParseErrorKind.invalid_entity, detail)) }
         }
         if stack.count() == 1 {
-            if !only_space(value) { return self.failure_void(ParseErrorKind.unexpected_token, "text is not allowed outside the XML root element") }
+            if !only_space(value) { return (try self.failure_void(ParseErrorKind.unexpected_token, "text is not allowed outside the XML root element")) }
             if value == "" { return Result<void, ParseError>.success() }
         }
-        return self.append(stack, Node.text(value), stack.count())
+        return (try self.append(stack, Node.text(value), stack.count()))
     }
 
     private func read_comment(stack:&Node[]) Result<void, ParseError> {
         self.offset += 4
         let start = self.offset
         while self.offset + 2 < self.input.count() && !starts_at(self.input, self.offset, "-->") {
-            if starts_at(self.input, self.offset, "--") { return self.failure_void(ParseErrorKind.unexpected_token, "XML comment cannot contain '--'") }
+            if starts_at(self.input, self.offset, "--") { return (try self.failure_void(ParseErrorKind.unexpected_token, "XML comment cannot contain '--'")) }
             self.offset++
         }
-        if self.offset + 2 >= self.input.count() { return self.failure_void(ParseErrorKind.unexpected_end, "unterminated XML comment") }
+        if self.offset + 2 >= self.input.count() { return (try self.failure_void(ParseErrorKind.unexpected_end, "unterminated XML comment")) }
         let value = bytes_text(self.input, start, self.offset)
         self.offset += 3
-        return self.append(stack, Node.comment(value), stack.count())
+        return (try self.append(stack, Node.comment(value), stack.count()))
     }
 
     private func read_cdata(stack:&Node[]) Result<void, ParseError> {
-        if stack.count() == 1 { return self.failure_void(ParseErrorKind.unexpected_token, "CDATA is not allowed outside the XML root element") }
+        if stack.count() == 1 { return (try self.failure_void(ParseErrorKind.unexpected_token, "CDATA is not allowed outside the XML root element")) }
         self.offset += 9
         let start = self.offset
         while self.offset + 2 < self.input.count() && !starts_at(self.input, self.offset, "]]>") { self.offset++ }
-        if self.offset + 2 >= self.input.count() { return self.failure_void(ParseErrorKind.unexpected_end, "unterminated XML CDATA section") }
+        if self.offset + 2 >= self.input.count() { return (try self.failure_void(ParseErrorKind.unexpected_end, "unterminated XML CDATA section")) }
         let value = bytes_text(self.input, start, self.offset)
         self.offset += 3
-        return self.append(stack, Node.cdata(value), stack.count())
+        return (try self.append(stack, Node.cdata(value), stack.count()))
     }
 
     private func read_instruction(stack:&Node[]) Result<void, ParseError> {
         self.offset += 2
         var target = ""
-        match self.read_name() {
+        match (try self.read_name()) {
             success(value) => { target = value }
             failure(error) => { return Result<void, ParseError>.failure(error) }
         }
         self.space()
         let start = self.offset
         while self.offset + 1 < self.input.count() && !starts_at(self.input, self.offset, "?>") { self.offset++ }
-        if self.offset + 1 >= self.input.count() { return self.failure_void(ParseErrorKind.unexpected_end, "unterminated XML processing instruction") }
+        if self.offset + 1 >= self.input.count() { return (try self.failure_void(ParseErrorKind.unexpected_end, "unterminated XML processing instruction")) }
         let value = trim(bytes_text(self.input, start, self.offset))
         self.offset += 2
         if ascii_lower(target) == "xml" {
-            if stack.count() != 1 || self.node_count != 1 { return self.failure_void(ParseErrorKind.unexpected_token, "XML declaration must be the first node") }
-            return self.append_instruction(stack, target, value)
+            if stack.count() != 1 || self.node_count != 1 { return (try self.failure_void(ParseErrorKind.unexpected_token, "XML declaration must be the first node")) }
+            return (try self.append_instruction(stack, target, value))
         }
-        return self.append_instruction(stack, target, value)
+        return (try self.append_instruction(stack, target, value))
     }
 
     private func append_instruction(stack:&Node[], target:str, value:str) Result<void, ParseError> {
         var node = Node(6, target, value)
-        return self.append(stack, node, stack.count())
+        return (try self.append(stack, node, stack.count()))
     }
 
     private func read_close(stack:&Node[]) Result<void, ParseError> {
         self.offset += 2
         var name = ""
-        match self.read_name() {
+        match (try self.read_name()) {
             success(value) => { name = value }
             failure(error) => { return Result<void, ParseError>.failure(error) }
         }
         self.space()
-        if !self.take(62) { return self.failure_void(ParseErrorKind.unexpected_token, "closing XML tag must end with '>'") }
-        if stack.count() == 1 { return self.failure_void(ParseErrorKind.mismatched_element, "closing XML tag has no open element") }
+        if !self.take(62) { return (try self.failure_void(ParseErrorKind.unexpected_token, "closing XML tag must end with '>'")) }
+        if stack.count() == 1 { return (try self.failure_void(ParseErrorKind.mismatched_element, "closing XML tag has no open element")) }
         if stack[stack.count() - 1].raw_name() != name {
-            return self.failure_void(ParseErrorKind.mismatched_element, "closing XML tag '$(name)' does not match '$(stack[stack.count() - 1].raw_name())'")
+            return (try self.failure_void(ParseErrorKind.mismatched_element, "closing XML tag '$(name)' does not match '$(stack[stack.count() - 1].raw_name())'"))
         }
         stack.take_last()
         return Result<void, ParseError>.success()
@@ -383,7 +375,7 @@ class Parser {
     private func read_open(stack:&Node[]) Result<void, ParseError> {
         self.offset++
         var name = ""
-        match self.read_name() {
+        match (try self.read_name()) {
             success(value) => { name = value }
             failure(error) => { return Result<void, ParseError>.failure(error) }
         }
@@ -392,55 +384,55 @@ class Parser {
         var self_closing = false
         while self.offset < self.input.count() && self.input[self.offset] != 62 {
             if self.take(47) {
-                if !self.take(62) { return self.failure_void(ParseErrorKind.unexpected_token, "self-closing XML tag must end with '/>'") }
+                if !self.take(62) { return (try self.failure_void(ParseErrorKind.unexpected_token, "self-closing XML tag must end with '/>'")) }
                 self_closing = true
                 break
             }
             var attribute_name = ""
-            match self.read_name() {
+            match (try self.read_name()) {
                 success(value) => { attribute_name = value }
                 failure(error) => { return Result<void, ParseError>.failure(error) }
             }
             if opened.has_attribute(attribute_name) {
-                return self.failure_void(ParseErrorKind.duplicate_attribute, "duplicate XML attribute '$(attribute_name)'")
+                return (try self.failure_void(ParseErrorKind.duplicate_attribute, "duplicate XML attribute '$(attribute_name)'"))
             }
             self.space()
-            if !self.take(61) { return self.failure_void(ParseErrorKind.unexpected_token, "XML attribute requires '='") }
+            if !self.take(61) { return (try self.failure_void(ParseErrorKind.unexpected_token, "XML attribute requires '='")) }
             self.space()
             if self.offset >= self.input.count() || (self.input[self.offset] != 34 && self.input[self.offset] != 39) {
-                return self.failure_void(ParseErrorKind.unexpected_token, "XML attribute value must be quoted")
+                return (try self.failure_void(ParseErrorKind.unexpected_token, "XML attribute value must be quoted"))
             }
             let quote = self.input[self.offset]
             self.offset++
             let start = self.offset
             while self.offset < self.input.count() && self.input[self.offset] != quote && self.input[self.offset] != 60 { self.offset++ }
             if self.offset >= self.input.count() || self.input[self.offset] != quote {
-                return self.failure_void(ParseErrorKind.unexpected_end, "unterminated XML attribute value")
+                return (try self.failure_void(ParseErrorKind.unexpected_end, "unterminated XML attribute value"))
             }
             let source = bytes_text(self.input, start, self.offset)
             self.offset++
             var value = ""
-            match decode_entities(source) {
+            match (try decode_entities(source)) {
                 success(decoded) => { value = decoded }
-                failure(detail) => { return self.failure_void(ParseErrorKind.invalid_entity, detail) }
+                failure(detail) => { return (try self.failure_void(ParseErrorKind.invalid_entity, detail)) }
             }
             opened.set_attribute(attribute_name, value)
             self.space()
         }
         if !self_closing {
-            if !self.take(62) { return self.failure_void(ParseErrorKind.unexpected_end, "unterminated XML start tag") }
+            if !self.take(62) { return (try self.failure_void(ParseErrorKind.unexpected_end, "unterminated XML start tag")) }
         }
         if stack.count() == 1 {
             self.root_count++
-            if self.root_count > 1 { return self.failure_void(ParseErrorKind.multiple_roots, "XML document contains multiple root elements") }
+            if self.root_count > 1 { return (try self.failure_void(ParseErrorKind.multiple_roots, "XML document contains multiple root elements")) }
         }
         let depth = stack.count()
-        match self.append(stack, opened, depth) {
+        match (try self.append(stack, opened, depth)) {
             failure(error) => { return Result<void, ParseError>.failure(error) }
             success => {}
         }
         if !self_closing {
-            if depth >= self.options.maximum_depth { return self.failure_void(ParseErrorKind.depth_limit, "XML nesting exceeds maximum_depth") }
+            if depth >= self.options.maximum_depth { return (try self.failure_void(ParseErrorKind.depth_limit, "XML nesting exceeds maximum_depth")) }
             stack.append(opened)
         }
         return Result<void, ParseError>.success()
@@ -448,7 +440,7 @@ class Parser {
 
     private func read_name() Result<str, ParseError> {
         if self.offset >= self.input.count() || !name_start(self.input[self.offset]) {
-            return self.failure_text(ParseErrorKind.invalid_name, "expected an XML name")
+            return (try self.failure_text(ParseErrorKind.invalid_name, "expected an XML name"))
         }
         let start = self.offset
         self.offset++
@@ -457,8 +449,8 @@ class Parser {
     }
 
     private func append(stack:&Node[], child:Node, depth:int) Result<void, ParseError> {
-        if depth > self.options.maximum_depth { return self.failure_void(ParseErrorKind.depth_limit, "XML nesting exceeds maximum_depth") }
-        if self.node_count >= self.options.maximum_nodes { return self.failure_void(ParseErrorKind.node_limit, "XML document exceeds maximum_nodes") }
+        if depth > self.options.maximum_depth { return (try self.failure_void(ParseErrorKind.depth_limit, "XML nesting exceeds maximum_depth")) }
+        if self.node_count >= self.options.maximum_nodes { return (try self.failure_void(ParseErrorKind.node_limit, "XML document exceeds maximum_nodes")) }
         var parent = stack.take_last()
         parent.append(child)
         stack.append(parent)
@@ -578,7 +570,7 @@ func decode_entities(value:str) Result<str, str> {
             let scalar = entity_scalar(name)
             if scalar == 0 { return Result<str, str>.failure("unknown or invalid XML entity '&$(name);'") }
             var scalars:uint32[] = [scalar]
-            match UTF8.from_scalars(@scalars[0:1]) {
+            match (try UTF8.from_scalars(@scalars[0:1])) {
                 success(text) => { append(output, text) }
                 failure(error) => { return Result<str, str>.failure("invalid XML character reference") }
             }

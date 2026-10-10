@@ -18,7 +18,8 @@ Then import its public module:
 use XML
 ```
 
-XML requires Silex 0.39.0 or newer.
+This development revision requires the toolchain with `try` capture for
+`Result` operations and extraction on ordinary calls.
 
 ## Parse and traverse a document
 
@@ -66,5 +67,6 @@ Version 0.2 preserves namespace declarations and qualified names but does not
 yet resolve them into namespace URI and local-name pairs. Accepted XML names
 currently match the portable ASCII subset.
 
-`try_parse` returns structural and configured limit errors with their source
-location. `parse` is the direct form for trusted application input.
+`parse` has one `Result<Document, ParseError>` declaration. An ordinary call
+returns the document or panics on error. `try XML.parse(source)` keeps
+structural and limit errors with their source location for explicit handling.
